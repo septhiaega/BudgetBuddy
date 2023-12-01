@@ -1,333 +1,206 @@
 import tkinter as tk
+from tkinter import messagebox
 from tkinter import ttk
-import locale
-import tkinter.messagebox as messagebox
 from datetime import datetime
+from tkinter import simpledialog
+import json
 
-class TransaksiBaru:
-    def __init__(self, root, aplikasi_keuangan):
-        self.root = root
-        self.aplikasi_keuangan = aplikasi_keuangan
-        self.root.title("Transaksi Baru")
-        self.root.configure(bg='#D3D3D3')
-
-        # Mengatur bahasa dan negara untuk format rupiah
-        locale.setlocale(locale.LC_ALL, 'id_ID.UTF-8')
-
-        # Variabel untuk menyimpan data keuangan dan tanggal
-        self.transaksi_var = tk.StringVar()
-        self.nilai_var = tk.DoubleVar()
-        self.hari_var = tk.StringVar()
-        self.bulan_var = tk.StringVar()
-        self.tahun_var = tk.StringVar()
-        self.keterangan_var = tk.StringVar()
-
-        # Label dan Combobox untuk memilih tanggal
-        ttk.Label(root, text="Tanggal:", background='#D3D3D3', foreground='black').grid(column=0, row=0, padx=10, pady=10)
-        self.hari_combobox = ttk.Combobox(root, values=[str(i) for i in range(1, 32)], state="readonly", background='#C0C0C0', foreground='black')
-        self.hari_combobox.grid(column=1, row=0, padx=10, pady=10)
-        self.hari_combobox.set("1")  # Set opsi default
-        self.bulan_combobox = ttk.Combobox(root, values=[
-            "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-            "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-        ], state="readonly", background='#C0C0C0', foreground='black')
-        self.bulan_combobox.grid(column=2, row=0, padx=10, pady=10)
-        self.bulan_combobox.set("Januari")  # Set opsi default
-        self.tahun_combobox = ttk.Combobox(root, values=[str(i) for i in range(2000, 2081)], state="readonly", background='#C0C0C0', foreground='black')
-        self.tahun_combobox.grid(column=3, row=0, padx=10, pady=10)
-        self.tahun_combobox.set("2000")  # Set opsi default
-
-        # Combobox untuk memilih jenis transaksi
-        ttk.Label(root, text="Jenis Transaksi:", background='#D3D3D3', foreground='black').grid(column=0, row=1, padx=10, pady=10)
-        jenis_transaksi_combobox = ttk.Combobox(root, textvariable=self.transaksi_var, values=["Pemasukan", "Pengeluaran"], state="readonly", background='#C0C0C0', foreground='black')
-        jenis_transaksi_combobox.grid(column=1, row=1, padx=10, pady=10)
-        jenis_transaksi_combobox.set("Pemasukan")  # Set opsi default
-
-        # Entry untuk memasukkan nilai transaksi dengan format rupiah
-        ttk.Label(root, text="Nilai:", background='#D3D3D3', foreground='black').grid(column=0, row=2, padx=10, pady=10)
-        self.nilai_entry = ttk.Entry(root, textvariable=self.nilai_var)
-        self.nilai_entry.grid(column=1, row=2, padx=10, pady=10)
-
-        # Entry untuk memasukkan keterangan transaksi
-        ttk.Label(root, text="Keterangan:", background='#D3D3D3', foreground='black').grid(column=0, row=3, padx=10, pady=10)
-        ttk.Entry(root, textvariable=self.keterangan_var).grid(column=1, row=3, padx=10, pady=10)
-
-        # Tombol untuk menyimpan transaksi
-        ttk.Button(root, text="Simpan", command=self.simpan_transaksi, style='TButton').grid(column=0, row=4, columnspan=2, pady=10)
-
-        # Tombol untuk kembali ke halaman utama
-        ttk.Button(root, text="Kembali", command=self.kembali_ke_halaman_utama, style='TButton').grid(column=1, row=5, columnspan=2, pady=10)
-
-    def simpan_transaksi(self):
-        try:
-            nilai = float(self.nilai_var.get())
-            jenis_transaksi = self.transaksi_var.get()
-            hari = self.hari_combobox.get()
-            bulan = self.bulan_combobox.get()
-            tahun = self.tahun_combobox.get()
-            keterangan = self.keterangan_var.get()
-
-            # Validasi nilai transaksi
-            if nilai <= 0:
-                messagebox.showerror("Error", "Nilai transaksi harus lebih dari 0")
-                return
-
-            # Validasi tanggal
-            try:
-                # Coba parsing tanggal
-                tanggal = datetime.strptime(f"{tahun}-{bulan}-{hari}", "%Y-%B-%d").strftime("%d %B %Y")
-            except ValueError:
-                messagebox.showerror("Error", "Tanggal tidak valid")
-                return
-
-            # Format nilai sebagai rupiah
-            nilai_rupiah = locale.currency(nilai, grouping=True)
-
-            # Ambil saldo terakhir dari histori jika ada
-            if self.aplikasi_keuangan.histori_transaksi.size() > 0:
-                saldo_terakhir = float(self.aplikasi_keuangan.histori_transaksi.get(tk.END).split("Saldo Akhir ")[1])
-            else:
-                saldo_terakhir = 0
-
-            # Hitung saldo akhir berdasarkan jenis transaksi
-            if jenis_transaksi == "Pemasukan":
-                saldo_akhir = nilai + saldo_terakhir
-            else:
-                saldo_akhir = saldo_terakhir - nilai
-
-            # Tambahkan entri ke kotak history di halaman utama
-            histori_text = f"{tanggal}: {jenis_transaksi} {nilai_rupiah}, Keterangan: {keterangan}, Saldo Akhir {saldo_akhir}"
-            self.aplikasi_keuangan.histori_transaksi.insert(tk.END, histori_text)
-
-            # Update total saldo di halaman utama
-            self.aplikasi_keuangan.total_saldo = saldo_akhir
-            self.aplikasi_keuangan.update_total_saldo()
-
-            # Tutup jendela transaksi baru
-            self.root.destroy()
-
-        except ValueError:
-            # Tangani jika input tidak valid
-            messagebox.showerror("Error", "Input tidak valid")
-
-    def kembali_ke_halaman_utama(self):
-        # Tutup jendela transaksi baru
-        self.root.destroy()
-
-class HapusTransaksi:
-    def __init__(self, root, aplikasi_keuangan):
-        self.root = root
-        self.aplikasi_keuangan = aplikasi_keuangan
-        self.root.title("Hapus Transaksi")
-        self.root.configure(bg='#D3D3D3')
-
-        # Mengatur bahasa dan negara untuk format rupiah
-        locale.setlocale(locale.LC_ALL, 'id_ID.UTF-8')
-
-        # Label dan Listbox untuk menampilkan histori transaksi
-        ttk.Label(root, text="Histori Transaksi:", background='#D3D3D3', foreground='black').grid(column=0, row=0, padx=10, pady=10)
-        self.histori_transaksi_listbox = tk.Listbox(root, width=60, height=15, bg='#C0C0C0', fg='black')
-        self.histori_transaksi_listbox.grid(column=0, row=1, rowspan=5, padx=10, pady=10)
-
-        # Mengisi Listbox dengan data histori transaksi
-        for entry in self.aplikasi_keuangan.histori_transaksi.get(0, tk.END):
-            self.histori_transaksi_listbox.insert(tk.END, entry)
-
-        # Tombol untuk menghapus transaksi terpilih
-        ttk.Button(root, text="Hapus Transaksi", command=self.hapus_transaksi, style='TButton').grid(column=0, row=6, pady=10)
-
-        # Tombol untuk kembali ke halaman utama
-        ttk.Button(root, text="Kembali", command=self.kembali_ke_halaman_utama, style='TButton').grid(column=1, row=7, columnspan=2, pady=10)
-
-    def hapus_transaksi(self):
-        try:
-            # Ambil indeks transaksi yang dipilih
-            selected_index = self.histori_transaksi_listbox.curselection()
-
-            if not selected_index:
-                messagebox.showinfo("Informasi", "Pilih transaksi yang akan dihapus.")
-                return
-
-            selected_index = int(selected_index[0])
-
-            # Ambil data transaksi yang dipilih
-            selected_entry = self.histori_transaksi_listbox.get(selected_index)
-
-            # Parsing nilai transaksi dari data transaksi yang dipilih
-            nilai_transaksi = float(selected_entry.split(" ")[2].replace(",", ""))
-
-            # Parsing jenis transaksi dari data transaksi yang dipilih
-            jenis_transaksi = selected_entry.split(" ")[1]
-
-            # Ambil saldo terakhir dari histori jika ada
-            if selected_index > 0:
-                saldo_terakhir = float(self.histori_transaksi_listbox.get(selected_index - 1).split("Saldo Akhir ")[1])
-            else:
-                saldo_terakhir = 0
-
-            # Hitung saldo akhir setelah penghapusan transaksi
-            if jenis_transaksi == "Pemasukan":
-                saldo_akhir = saldo_terakhir - nilai_transaksi
-            else:
-                saldo_akhir = saldo_terakhir + nilai_transaksi
-
-            # Hapus transaksi dari histori
-            self.histori_transaksi_listbox.delete(selected_index)
-
-            # Update total saldo di halaman utama
-            self.aplikasi_keuangan.total_saldo = saldo_akhir
-            self.aplikasi_keuangan.update_total_saldo()
-
-        except ValueError:
-            # Tangani jika terjadi kesalahan dalam penghapusan
-            messagebox.showerror("Error", "Gagal menghapus transaksi")
-
-    def kembali_ke_halaman_utama(self):
-        # Tutup jendela hapus transaksi
-        self.root.destroy()
-
-class AplikasiKeuangan:
+class BudgeBuddyApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("BudgeBuddy - Manajemen Keuangan Pribadi")
-        self.root.configure(bg='#D3D3D3')
+        self.root.title("BudgeBuddy - Aplikasi Keuangan")
+        
+        # Variabel dan list untuk menyimpan transaksi
+        self.transactions = []
+        self.current_transaction = {"tanggal": "", "keterangan": "", "jumlah": 0}
 
-        # Mengatur bahasa dan negara untuk format rupiah
-        locale.setlocale(locale.LC_ALL, 'id_ID.UTF-8')
+        # Frame Utama
+        self.frame_utama = tk.Frame(root)
+        self.frame_utama.grid(row=0, column=0, rowspan=3, columnspan=2, padx=10, pady=10)
 
-        # Label untuk menampilkan total saldo
-        self.total_saldo_label = ttk.Label(root, text="Total Saldo: 0", background='#D3D3D3', foreground='black')
-        self.total_saldo_label.grid(column=2, row=8, columnspan=2, pady=10)
+        # Frame Saldo Pemasukan
+        self.frame_saldo_pemasukan = tk.Frame(root, borderwidth=2, relief="groove")
+        self.frame_saldo_pemasukan.grid(row=0, column=2, padx=10, pady=10)
 
-        # Tombol untuk transaksi baru
-        ttk.Button(root, text="Transaksi Baru", command=self.buat_transaksi_baru, style='TButton').grid(column=0, row=4, columnspan=2, pady=10)
+        tk.Label(self.frame_saldo_pemasukan, text="Saldo Akhir Pemasukan").grid(row=0, column=0, columnspan=2)
+        self.saldo_pemasukan_label = tk.Label(self.frame_saldo_pemasukan, text="0")
+        self.saldo_pemasukan_label.grid(row=1, column=0, columnspan=2)
 
-        # Tombol untuk hapus semua histori
-        ttk.Button(root, text="Hapus Semua Histori", command=self.hapus_semua_histori, style='TButton').grid(column=2, row=6, pady=10)
+        # Frame Saldo Pengeluaran
+        self.frame_saldo_pengeluaran = tk.Frame(root, borderwidth=2, relief="groove")
+        self.frame_saldo_pengeluaran.grid(row=1, column=2, padx=10, pady=10)
 
-        # Tombol untuk urutkan berdasarkan
-        ttk.Label(root, text="Urutkan berdasarkan:", background='#D3D3D3', foreground='black').grid(column=2, row=7, pady=10)
-        urutkan_combobox = ttk.Combobox(root, values=["Waktu Terlama", "Waktu Terbaru", "Jumlah Terbesar", "Jumlah Terkecil"], state="readonly", background='#C0C0C0', foreground='black')
-        urutkan_combobox.grid(column=3, row=7, pady=10)
-        urutkan_combobox.set("Waktu Terlama")  # Set opsi default
-        ttk.Button(root, text="Urutkan", command=lambda: self.urutkan_history(urutkan_combobox.get()), style='TButton').grid(column=4, row=7, pady=10)
+        tk.Label(self.frame_saldo_pengeluaran, text="Saldo Akhir Pengeluaran").grid(row=0, column=0, columnspan=2)
+        self.saldo_pengeluaran_label = tk.Label(self.frame_saldo_pengeluaran, text="0")
+        self.saldo_pengeluaran_label.grid(row=1, column=0, columnspan=2)
 
-        # Tombol untuk buka halaman hapus transaksi
-        ttk.Button(root, text="Hapus Transaksi", command=self.buka_hapus_transaksi, style='TButton').grid(column=1, row=8, columnspan=2, pady=10)
+        # Label dan Entry untuk input transaksi
+        tk.Label(self.frame_utama, text="Tanggal:").grid(row=0, column=0)
+        self.date_entry = tk.Entry(self.frame_utama)
+        self.date_entry.grid(row=0, column=1)
 
-        # Tombol untuk buka halaman cari transaksi
-        ttk.Button(root, text="Cari Transaksi", command=self.buka_cari_transaksi, style='TButton').grid(column=1, row=9, columnspan=2, pady=10)
+        tk.Label(self.frame_utama, text="Keterangan:").grid(row=1, column=0)
+        self.description_entry = tk.Entry(self.frame_utama)
+        self.description_entry.grid(row=1, column=1)
 
-        # Histori transaksi (Listbox)
-        self.histori_transaksi = tk.Listbox(root, width=60, height=15, bg='#C0C0C0', fg='black')
-        self.histori_transaksi.grid(column=2, row=1, rowspan=5, padx=10, pady=10, columnspan=2)
+        tk.Label(self.frame_utama, text="Jumlah:").grid(row=2, column=0)
+        self.amount_entry = tk.Entry(self.frame_utama)
+        self.amount_entry.grid(row=2, column=1)
 
-        # Inisialisasi total saldo
-        self.total_saldo = 0
-        self.histori_asli = []  # Menyimpan salinan histori transaksi asli
-    
-    def urutkan_history(self, kriteria):
-        # Dapatkan semua entri dari Listbox
-        entries = self.histori_asli if self.histori_asli else self.histori_transaksi.get(0, tk.END)
+        # Tombol untuk menambahkan transaksi
+        add_button = tk.Button(self.frame_utama, text="Tambah Transaksi", command=self.add_transaction)
+        add_button.grid(row=3, column=0, columnspan=2, pady=10)
 
-        if kriteria == "Waktu Terlama":
-            # Urutkan entri berdasarkan tanggal terlama
-            sorted_entries = sorted(entries, key=lambda x: x.split(":")[0])
-        elif kriteria == "Waktu Terbaru":
-            # Urutkan entri berdasarkan tanggal terbaru
-            sorted_entries = sorted(entries, key=lambda x: x.split(":")[0], reverse=True)
-        elif kriteria == "Jumlah Terbesar":
-            # Urutkan entri berdasarkan jumlah terbesar
-            sorted_entries = sorted(entries, key=lambda x: float(x.split("Saldo Akhir ")[1]), reverse=True)
-        elif kriteria == "Jumlah Terkecil":
-            # Urutkan entri berdasarkan jumlah terkecil
-            sorted_entries = sorted(entries, key=lambda x: float(x.split("Saldo Akhir ")[1]))
+        # Treeview untuk menampilkan transaksi
+        self.transaction_tree = ttk.Treeview(self.frame_utama, columns=("Tanggal", "Keterangan", "Jumlah"))
+        self.transaction_tree.heading("#0", text="ID")
+        self.transaction_tree.heading("Tanggal", text="Tanggal")
+        self.transaction_tree.heading("Keterangan", text="Keterangan")
+        self.transaction_tree.heading("Jumlah", text="Jumlah")
+        self.transaction_tree.grid(row=4, column=0, columnspan=3)
 
-        # Hapus semua entri dari Listbox
-        self.histori_transaksi.delete(0, tk.END)
-
-        # Masukkan entri yang sudah diurutkan ke Listbox
-        for entry in sorted_entries:
-            self.histori_transaksi.insert(tk.END, entry)
-
-
-    def hapus_semua_histori(self):
-        # Konfirmasi sebelum menghapus semua histori
-        confirm = messagebox.askyesno("Konfirmasi", "Apakah Anda yakin ingin menghapus semua histori transaksi?")
-        if confirm:
-            # Hapus semua entri dari Listbox
-            self.histori_transaksi.delete(0, tk.END)
-
-            # Reset total saldo
-            self.total_saldo = 0
-            self.update_total_saldo()
-
-    def buat_transaksi_baru(self):
-        # Membuat jendela baru untuk transaksi baru
-        top = tk.Toplevel(self.root)
-        transaksi_baru = TransaksiBaru(top, self)
-
-    def hapus_transaksi(self):
-        # Membuat jendela baru untuk hapus transaksi
-        top = tk.Toplevel(self.root)
-        hapus_transaksi = HapusTransaksi(top, self)
-
-    def buka_hapus_transaksi(self):
-        # Buka halaman hapus transaksi
-        self.hapus_transaksi()
-
-    def buka_cari_transaksi(self):
-        # Buka halaman cari transaksi
-        top = tk.Toplevel(self.root)
-        cari_transaksi = CariTransaksi(top, self)
-
-    def update_total_saldo(self):
-        # Update label total saldo
-        self.total_saldo_label.config(text=f"Total Saldo: {locale.currency(self.total_saldo, grouping=True)}")
-
-class CariTransaksi:
-    def __init__(self, root, aplikasi_keuangan):
-        self.root = root
-        self.aplikasi_keuangan = aplikasi_keuangan
-        self.root.title("Cari Transaksi")
-        self.root.configure(bg='#D3D3D3')
-
-        # Mengatur bahasa dan negara untuk format rupiah
-        locale.setlocale(locale.LC_ALL, 'id_ID.UTF-8')
-
-        # Label dan Entry untuk mencari transaksi
-        ttk.Label(root, text="Cari Transaksi:", background='#D3D3D3', foreground='black').grid(column=0, row=0, padx=10, pady=10)
-        self.cari_entry = ttk.Entry(root)
-        self.cari_entry.grid(column=1, row=0, padx=10, pady=10)
+        # Tombol untuk menyimpan transaksi
+        save_button = tk.Button(self.frame_utama, text="Simpan Transaksi", command=self.save_transaction)
+        save_button.grid(row=5, column=0, pady=10)
 
         # Tombol untuk mencari transaksi
-        ttk.Button(root, text="Cari", command=self.cari_transaksi, style='TButton').grid(column=2, row=0, pady=10)
+        search_button = tk.Button(self.frame_utama, text="Cari Transaksi", command=self.search_transaction)
+        search_button.grid(row=5, column=1, pady=10)
 
-        # Listbox untuk menampilkan hasil pencarian
-        self.hasil_listbox = tk.Listbox(root, width=60, height=15, bg='#C0C0C0', fg='black')
-        self.hasil_listbox.grid(column=0, row=1, rowspan=5, padx=10, pady=10, columnspan=3)
+        # Tombol untuk menghapus transaksi
+        delete_button = tk.Button(self.frame_utama, text="Hapus Transaksi", command=self.delete_transaction)
+        delete_button.grid(row=6, column=0, pady=10)
 
-        # Tombol untuk kembali ke halaman utama
-        ttk.Button(root, text="Kembali", command=self.kembali_ke_halaman_utama, style='TButton').grid(column=1, row=7, pady=10)
+        # Combobox untuk mengurutkan transaksi
+        sort_label = tk.Label(self.frame_utama, text="Urutkan Transaksi:")
+        sort_label.grid(row=6, column=1)
+        self.sort_options = ttk.Combobox(self.frame_utama, values=["Terbesar", "Terkecil"])
+        self.sort_options.grid(row=6, column=2)
+        sort_button = tk.Button(self.frame_utama, text="Urutkan", command=self.sort_transaction)
+        sort_button.grid(row=7, column=1, pady=10)
 
-    def cari_transaksi(self):
-        # Ambil kata kunci pencarian
-        kata_kunci = self.cari_entry.get().lower()
+        # Saldo awal
+        self.saldo_awal = 0
+        self.saldo_label = tk.Label(self.frame_utama, text="Saldo Akhir: {}".format(self.saldo_awal))
+        self.saldo_label.grid(row=8, column=0, columnspan=2)
 
-        # Hapus semua entri dari Listbox
-        self.hasil_listbox.delete(0, tk.END)
+    def add_transaction(self):
+        # Mendapatkan nilai dari input transaksi
+        date = self.date_entry.get()
+        description = self.description_entry.get()
+        amount = self.amount_entry.get()
 
-        # Cari transaksi berdasarkan kata kunci
-        for entry in self.aplikasi_keuangan.histori_transaksi.get(0, tk.END):
-            if kata_kunci in entry.lower():
-                self.hasil_listbox.insert(tk.END, entry)
+        # Validasi input
+        if not date or not description or not amount:
+            messagebox.showerror("Error", "Mohon isi semua field.")
+            return
 
-    def kembali_ke_halaman_utama(self):
-        # Tutup jendela cari transaksi
-        self.root.destroy()
+        # Menentukan apakah transaksi adalah pemasukan atau pengeluaran
+        transaction_type = simpledialog.askstring("Jenis Transaksi", "Jenis Transaksi (Pemasukan/Pengeluaran):")
+        if not transaction_type or transaction_type.lower() not in ["pemasukan", "pengeluaran"]:
+            messagebox.showerror("Error", "Jenis transaksi tidak valid.")
+            return
+
+        # Menambahkan transaksi ke list
+        transaction_id = len(self.transactions) + 1
+        transaction_amount = float(amount) if transaction_type.lower() == "pemasukan" else -float(amount)
+        
+        # Update saldo akhir
+        self.saldo_awal += transaction_amount
+
+        self.current_transaction = {
+            "id": transaction_id,
+            "tanggal": date,
+            "keterangan": description,
+            "jumlah": transaction_amount,
+            "jenis": transaction_type.lower(),
+        }
+        self.transactions.append(self.current_transaction)
+
+        # Menampilkan transaksi di Treeview
+        self.transaction_tree.insert("", "end", text=str(transaction_id),
+                                     values=(date, description, transaction_amount))
+
+        # Mengupdate label saldo akhir
+        self.saldo_label.config(text="Saldo Akhir: {}".format(self.saldo_awal))
+
+        # Mengosongkan field input
+        self.date_entry.delete(0, tk.END)
+        self.description_entry.delete(0, tk.END)
+        self.amount_entry.delete(0, tk.END)
+
+        # Update saldo pemasukan dan pengeluaran
+        self.update_saldo_labels()
+
+    def update_saldo_labels(self):
+        saldo_pemasukan = sum(transaction["jumlah"] for transaction in self.transactions if transaction["jenis"] == "pemasukan")
+        saldo_pengeluaran = sum(transaction["jumlah"] for transaction in self.transactions if transaction["jenis"] == "pengeluaran")
+
+        self.saldo_pemasukan_label.config(text=str(saldo_pemasukan))
+        self.saldo_pengeluaran_label.config(text=str(saldo_pengeluaran))
+
+    def save_transaction(self):
+        # Menyimpan transaksi ke file JSON
+        with open("transactions.json", "w") as file:
+            json.dump(self.transactions, file)
+
+        messagebox.showinfo("Info", "Transaksi berhasil disimpan.")
+
+    def search_transaction(self):
+        # Mencari transaksi berdasarkan keterangan
+        search_query = simpledialog.askstring("Cari Transaksi", "Masukkan keterangan transaksi:")
+        if search_query:
+            search_results = [transaction for transaction in self.transactions if search_query.lower() in transaction["keterangan"].lower()]
+            
+            # Menampilkan hasil pencarian di Treeview
+            self.display_transactions(search_results)
+
+    def delete_transaction(self):
+        # Menghapus transaksi yang dipilih
+        selected_item = self.transaction_tree.selection()
+        if selected_item:
+            transaction_id = int(self.transaction_tree.item(selected_item, "text"))
+            deleted_transaction = next(transaction for transaction in self.transactions if transaction["id"] == transaction_id)
+            self.transactions.remove(deleted_transaction)
+            self.transaction_tree.delete(selected_item)
+
+            # Update saldo akhir setelah menghapus transaksi
+            self.saldo_awal -= deleted_transaction["jumlah"]
+
+            # Mengupdate label saldo akhir
+            self.saldo_label.config(text="Saldo Akhir: {}".format(self.saldo_awal))
+
+            # Update saldo pemasukan dan pengeluaran
+            self.update_saldo_labels()
+        else:
+            messagebox.showerror("Error", "Pilih transaksi yang akan dihapus.")
+
+    def sort_transaction(self):
+        # Mengurutkan transaksi berdasarkan pilihan pengguna
+        sort_option = self.sort_options.get()
+        if sort_option == "Terbesar":
+            self.transactions.sort(key=lambda x: x["jumlah"], reverse=True)
+        elif sort_option == "Terkecil":
+            self.transactions.sort(key=lambda x: x["jumlah"])
+
+        # Menampilkan transaksi yang sudah diurutkan di Treeview
+        self.display_transactions(self.transactions)
+
+        # Update saldo pemasukan dan pengeluaran
+        self.update_saldo_labels()
+
+    def display_transactions(self, transactions):
+        # Menghapus semua item di Treeview
+        for item in self.transaction_tree.get_children():
+            self.transaction_tree.delete(item)
+
+        # Menampilkan transaksi di Treeview
+        for transaction in transactions:
+            self.transaction_tree.insert("", "end", text=str(transaction["id"]),
+                                     values=(transaction["tanggal"], transaction["keterangan"], transaction["jumlah"]))
+
 
 if __name__ == "__main__":
     root = tk.Tk()
-    aplikasi = AplikasiKeuangan(root)
+    app = BudgeBuddyApp(root)
     root.mainloop()
-
